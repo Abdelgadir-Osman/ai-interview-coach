@@ -1,7 +1,5 @@
 # AI Interview Coach
 
-[![Deploy to Cloudflare](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml/badge.svg)](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml)
-
 An interview coaching app that runs mock interviews (behavioral + technical), grades answers with a rubric, tracks recurring weaknesses, and adapts future questions to help you improve. Built on Cloudflare (Pages + Workers + Durable Objects + Workers AI).
 
 ## 🚀 Try it (preferred)
@@ -179,119 +177,31 @@ Each session is identified by a `sessionId` stored in the browser's localStorage
 
 **Adaptive Questioning**: Based on accumulated signals (e.g., frequent "missing_metrics"), the AI adapts future questions to focus on improving those specific areas.
 
-## 🚢 Deployment
+## ✅ How to verify Workers AI is really running (not fallback)
 
-### Deploy Worker
+The Worker has fallback question/grade logic if Workers AI isn’t available. To confirm the real model is responding:
 
-```bash
-cd worker
-wrangler login
-wrangler deploy
+### 1) Hit the health endpoint (recommended)
+
+Open:
+
+- `https://worker.o-abdelgadir32.workers.dev/api/health`
+
+You should see something like:
+
+```json
+{
+  "ok": true,
+  "ai": { "enabled": true, "model": "...", "smokeTest": "OK" }
+}
 ```
 
-Note the deployed Worker URL (e.g., `https://worker.your-subdomain.workers.dev`).
+If you see `enabled: false`, Workers AI isn’t active for that environment.
 
-### Deploy Pages
+### 2) Sanity check behavior in the app
 
-```bash
-cd apps/web
-npm run build
-wrangler pages deploy dist
-```
-
-Or connect to a Git repository and enable automatic deployments.
-
-### Configure Pages Environment Variables
-
-In Cloudflare Pages dashboard, set:
-
-```
-VITE_API_URL=https://worker.your-subdomain.workers.dev
-```
-
-### Update CORS (if needed)
-
-If your Pages domain differs from the Worker domain, update CORS settings in `worker/src/utils.ts`.
-
-## 🧪 Testing with cURL
-
-```bash
-# Start a chat session
-curl -X POST http://localhost:8787/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sessionId": "test-session",
-    "message": "/start behavioral"
-  }'
-
-# Answer a question
-curl -X POST http://localhost:8787/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sessionId": "test-session",
-    "message": "I once faced a tight deadline when..."
-  }'
-
-# Get summary
-curl "http://localhost:8787/api/summary?sessionId=test-session"
-```
-
-## 📁 Project Structure
-
-```
-cf_ai_interview_coach/
-├── apps/
-│   └── web/                  # Pages frontend
-│       ├── src/
-│       │   ├── App.tsx       # Main chat component
-│       │   ├── App.css       # Styles
-│       │   └── main.tsx      # React entry
-│       ├── index.html
-│       ├── vite.config.ts
-│       └── package.json
-├── worker/                   # Worker backend
-│   ├── src/
-│   │   ├── index.ts          # API routes & coordination
-│   │   ├── MemoryDO.ts       # Durable Object
-│   │   ├── prompts.ts        # AI prompt templates
-│   │   ├── types.ts          # TypeScript types
-│   │   └── utils.ts          # Utilities
-│   ├── wrangler.jsonc        # Wrangler config
-│   └── package.json
-├── README.md                 # This file
-├── PROMPTS.md                # AI prompts documentation
-├── REQUIREMENTS.md           # Requirements checklist
-└── Plan.md                   # Project plan
-```
-
-## ⚙️ Configuration
-
-### Worker Configuration (`worker/wrangler.jsonc`)
-
-- **Durable Objects**: `MEMORY_DO` binding for `MemoryDO` class
-- **AI Binding**: `AI` binding for Workers AI
-- **Migrations**: SQLite migration for Durable Objects
-
-### Pages Configuration (`apps/web/vite.config.ts`)
-
-- **API Proxy**: Proxies `/api/*` to `http://localhost:8787` in development
-- **Build Output**: `dist/` directory for deployment
-
-## 🐛 Known Limitations
-
-- **AI Model**: Uses Llama 3.3 via Workers AI. May fall back to hardcoded responses if binding is unavailable.
-- **Transcript Limits**: Transcripts are trimmed to last 20 messages to control token usage.
-- **Answer Length**: Very long answers (>3000 chars) are truncated with a warning.
-- **Local Mode**: Full AI functionality requires remote mode or deployed Worker (local mode has limitations).
-- **Rate Limiting**: No built-in rate limiting (add for production use).
-
-## 📚 Additional Resources
-
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Cloudflare Durable Objects](https://developers.cloudflare.com/durable-objects/)
-- [Workers AI](https://developers.cloudflare.com/workers-ai/)
-- [Cloudflare Pages](https://developers.cloudflare.com/pages/)
-- [Cloudflare Agents](https://developers.cloudflare.com/agents/)
+- Ask the same prompt multiple times (e.g. start → reset → start again). If the question varies and the feedback is detailed, you’re almost certainly using the model.
+- Fallback responses are short and generic.
 
 ## 📄 License
 

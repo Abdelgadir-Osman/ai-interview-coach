@@ -103,6 +103,11 @@ export default {
 		const url = new URL(request.url);
 
 		try {
+			if (url.pathname === "/api/health" && request.method === "GET") {
+				const resp = await handleHealth(env);
+				return withCors(resp, origin);
+			}
+
 			if (url.pathname === "/api/chat" && request.method === "POST") {
 				const resp = await handleChat(request, env);
 				return withCors(resp, origin);
@@ -124,6 +129,44 @@ export default {
 		}
 	},
 } satisfies ExportedHandler<Env>;
+
+async function handleHealth(env: Env): Promise<Response> {
+	const anyEnv = env as any;
+	const hasBinding = Boolean(anyEnv.AI);
+	if (!hasBinding) {
+		return jsonResponse({ ok: true, ai: { enabled: false, reason: "AI binding missing" } });
+	}
+
+	try {
+		const out = await anyEnv.AI.run(MODEL, {
+			messages: [
+				{ role: "system", content: "Return exactly: OK" },
+				{ role: "user", content: "OK" },
+			],
+			max_tokens: 16,
+			temperature: 0,
+		});
+		const response = (out?.response as string | undefined) ?? "";
+		return jsonResponse({
+			ok: true,
+			ai: {
+				enabled: true,
+				model: MODEL,
+				smokeTest: response.trim().slice(0, 50),
+			},
+		});
+	} catch (e) {
+		return jsonResponse({
+			ok: true,
+			ai: {
+				enabled: false,
+				model: MODEL,
+				reason: "AI run failed",
+				error: String(e),
+			},
+		});
+	}
+}
 
 async function readJson<T>(request: Request): Promise<T | null> {
 	try {
