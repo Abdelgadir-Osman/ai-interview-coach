@@ -1,6 +1,6 @@
 # AI Interview Coach
 
-[![Deploy to Cloudflare](https://github.com/yourusername/ai-interview-coach/actions/workflows/deploy.yml/badge.svg)](https://github.com/yourusername/ai-interview-coach/actions/workflows/deploy.yml)
+[![Deploy to Cloudflare](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml/badge.svg)](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml)
 
 An AI-powered interview coaching application built on Cloudflare that runs mock interviews (behavioral + technical), grades answers with a structured rubric, remembers your weak spots, and adapts subsequent questions to help you improve.
 
