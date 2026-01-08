@@ -1,0 +1,17 @@
+{
+	"name": "worker",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev --local",
+		"dev:remote": "wrangler dev",
+		"start": "wrangler dev --local",
+		"cf-typegen": "wrangler types",
+		"login": "wrangler login"
+	},
+	"devDependencies": {
+		"typescript": "^5.5.2",
+		"wrangler": "^4.57.0"
+	}
+}
