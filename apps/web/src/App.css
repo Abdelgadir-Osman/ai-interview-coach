@@ -952,6 +952,8 @@
 	background: #f0f4ff;
 	border-bottom: 1px solid #e5e7eb;
 	border-top: 2px solid #667eea;
+	max-height: min(58vh, 520px);
+	overflow-y: auto;
 }
 
 .help-panel h3 {
