@@ -2,6 +2,15 @@
 
 An interview coaching app that runs mock interviews (behavioral + technical), grades answers with a rubric, tracks recurring weaknesses, and adapts future questions to help you improve. Built on Cloudflare (Pages + Workers + Durable Objects + Workers AI).
 
+## Cloudflare AI Application Requirements
+
+This project covers all required components:
+
+- **LLM**: Uses **Llama 3.3** via **Workers AI** for generating interview questions and grading answers with structured JSON responses
+- **Workflow / Coordination**: **Cloudflare Workers** handle API routing and coordination logic; **Durable Objects** manage session state and conversation flow
+- **User Input**: **Cloudflare Pages** hosts the React chat interface with text input and **Web Speech API** for voice-to-text functionality
+- **Memory / State**: **Durable Objects** persist session state (conversation history, weakness signals, statistics, and adaptive question context) across requests
+
 ## 🚀 Try it (preferred)
 
 - **Web app**: `https://interview-coach.pages.dev`
