@@ -1,12 +1,17 @@
-# AI Prompts Documentation
+# PROMPTS.md (runtime prompt suite)
 
-This document logs the AI prompts used in building and operating the AI Interview Coach application. All prompts are designed for use with Workers AI (Llama 3.3) via structured JSON output.
+This document contains the **runtime prompts used by the AI Interview Coach** when calling Workers AI. Prompts are designed to be:
+
+- strict JSON (machine-parseable)
+- concise and interview-realistic
+- robust against formatting drift
+- explicit about rubrics and expectations
 
 ## Table of Contents
 
 1. [Question Generation Prompts](#question-generation-prompts)
 2. [Grading Prompts](#grading-prompts)
-3. [Prompt Engineering Decisions](#prompt-engineering-decisions)
+3. [Rubrics](#rubrics)
 
 ## Question Generation Prompts
 
@@ -146,6 +151,7 @@ I had to finish a project in two days. I worked hard and got it done on time.
 ```
 
 ## Rubric Prompts
+## Rubrics
 
 ### Behavioral/Mixed Mode Rubric
 
@@ -172,98 +178,10 @@ Grade the answer 0-10 based on:
 - impact (realism, constraints, edge cases)
 ```
 
-## Prompt Engineering Decisions
+## Runtime behavior notes (implementation)
 
-### 1. Structured JSON Output
-
-**Decision**: Require strict JSON schema with retry logic on parse failure.
-
-**Rationale**: 
-- Ensures reliable parsing and type safety
-- Prevents markdown formatting issues
-- Allows for structured data extraction
-
-**Implementation**:
-- Primary attempt: Normal prompt with schema
-- Retry attempt: Add "Return ONLY valid JSON. No markdown. No extra keys."
-- Fallback: Hardcoded minimal grade/question
-
-### 2. Context in Prompts
-
-**Decision**: Include mode, role, level, focus areas, and signals in all prompts.
-
-**Rationale**:
-- Allows AI to tailor questions and grading to candidate profile
-- Enables adaptive questioning based on accumulated weaknesses
-- Provides context for appropriate difficulty level
-
-### 3. Weakness Signals
-
-**Decision**: Track aggregated counters (missing_metrics, weak_result, unclear_task, rambling).
-
-**Rationale**:
-- Simple aggregation mechanism that doesn't require complex analysis
-- Allows AI to see patterns across multiple answers
-- Enables adaptive question generation focused on improvement areas
-
-### 4. Transcript Trimming
-
-**Decision**: Keep only last 20 messages in transcript.
-
-**Rationale**:
-- Controls token usage and costs
-- Maintains recent context without overwhelming the model
-- Prevents token limit errors
-
-### 5. Question Avoidance
-
-**Decision**: Include recently asked questions in prompt to avoid repetition.
-
-**Rationale**:
-- Prevents asking the same question multiple times
-- Ensures variety in interview experience
-- Maintains engagement
-
-### 6. Fallback Logic
-
-**Decision**: Use hardcoded fallbacks when AI is unavailable or fails.
-
-**Rationale**:
-- Ensures application works even when AI binding is unavailable
-- Allows for graceful degradation
-- Useful for local development without Cloudflare account
-
-**Fallback Question (Behavioral)**:
-```
-Tell me about a time you faced a tight deadline. What was the situation, what was your task, what actions did you take, and what was the result?
-```
-
-**Fallback Question (Technical)**:
-```
-Design a rate limiter for an API. Walk me through your approach, data structures, and tradeoffs (burstiness, distributed instances, and storage).
-```
-
-**Fallback Grade**:
-- Overall Score: 5/10
-- Generic strengths and improvements
-- Signal updates: missing_metrics: 1, weak_result: 1
-
-## Prompt Usage Summary
-
-| Prompt Type | Model | Temperature | Max Tokens | Use Case |
-|------------|-------|-------------|------------|----------|
-| Question Generation | Llama 3.3 70B | 0.6 | 900 | Generate adaptive interview questions |
-| Answer Grading | Llama 3.3 70B | 0.6 | 900 | Grade answers with structured rubric |
-
-## Future Improvements
-
-- **Fine-tuning**: Could fine-tune a smaller model on interview Q&A datasets
-- **Multi-turn context**: Could include more conversation history when available
-- **Personalization**: Could add user preferences for question difficulty/style
-- **Specialized prompts**: Could add role-specific prompts (e.g., frontend vs backend)
-- **Prompt versioning**: Could version prompts and track performance metrics
-
----
-
-**Note**: All prompts were designed and refined using AI assistance (transparently documented as per project requirements).
+The Worker enforces:
+- strict JSON parsing (with one retry asking for JSON-only)
+- transcript trimming to control token usage
+- fallbacks when the model is unavailable
 

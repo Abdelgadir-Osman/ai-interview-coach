@@ -2,95 +2,26 @@
 
 [![Deploy to Cloudflare](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml/badge.svg)](https://github.com/Abdelgadir-Osman/ai-interview-coach/actions/workflows/deploy.yml)
 
-An AI-powered interview coaching application built on Cloudflare that runs mock interviews (behavioral + technical), grades answers with a structured rubric, remembers your weak spots, and adapts subsequent questions to help you improve.
+An interview coaching app that runs mock interviews (behavioral + technical), grades answers with a rubric, tracks recurring weaknesses, and adapts future questions to help you improve. Built on Cloudflare (Pages + Workers + Durable Objects + Workers AI).
 
-## 🚀 Quick Start
+## 🚀 Try it (preferred)
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/ai-interview-coach.git
-cd ai-interview-coach
+- **Web app**: `https://interview-coach.pages.dev`
+- **Worker API**: `https://worker.o-abdelgadir32.workers.dev`
 
-# Setup Worker
-cd worker
-npm install
-npx wrangler login
+### What to try in the UI
+- **Guided onboarding**: choose mode → set role → optional focus → Start
+- **Quick action chips**: Start / Summary / Focus / Reset
+- **Scorecard** (after you answer): overall + clarity + impact (+ STAR breakdown in behavioral/mixed)
+- **Help panel**: commands + mode explanations (scrollable)
 
-# Setup Web App
-cd ../apps/web
-npm install
+## 🧑‍💻 Run locally
 
-# Start development
-npm run dev
-```
+### Prereqs
+- Node.js 18+ (Node 20 recommended)
+- A Cloudflare account (only required if you want real model responses via Workers AI)
 
-See [ENABLE_AI.md](./ENABLE_AI.md) for enabling Workers AI and [DEPLOY.md](./DEPLOY.md) for deployment instructions.
-
-## 🎯 Overview
-
-This application helps candidates prepare for technical and behavioral interviews by:
-
-- **Running mock interviews** in behavioral, technical, or mixed modes
-- **Grading answers** using STAR methodology (Situation, Task, Action, Result) + clarity + impact
-- **Tracking weaknesses** across sessions and adapting questions to focus on improvement areas
-- **Providing actionable feedback** with scores, strengths, improvements, and rewrites
-
-Built entirely on Cloudflare's platform using Workers AI (Llama 3.3), Durable Objects for state management, Workers for API coordination, and Pages for the chat interface.
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐
-│  Cloudflare     │
-│     Pages       │◄─── User
-│   (React UI)    │
-└────────┬────────┘
-         │ HTTP
-         ▼
-┌─────────────────┐
-│   Cloudflare    │
-│    Worker       │
-│   (API Routes)  │
-└────┬─────────┬──┘
-     │         │
-     │         │
-     ▼         ▼
-┌─────────┐ ┌──────────┐
-│ Workers │ │ Durable  │
-│   AI    │ │ Objects  │
-│ (Llama) │ │ (Memory) │
-└─────────┘ └──────────┘
-```
-
-### Components
-
-- **Cloudflare Pages** (`apps/web/`): React + Vite frontend with real-time chat interface
-- **Cloudflare Worker** (`worker/src/index.ts`): API coordinator handling `/api/chat`, `/api/reset`, `/api/summary`
-- **Durable Objects** (`worker/src/MemoryDO.ts`): Persistent state management for sessions, transcripts, signals, and stats
-- **Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`): LLM for question generation and answer grading
-
-## ✅ Requirements Compliance
-
-All 4 Cloudflare AI application requirements are met:
-
-1. ✅ **LLM**: Workers AI with Llama 3.3
-2. ✅ **Workflow/Coordination**: Worker + Durable Objects for multi-step coordination
-3. ✅ **User Input**: Cloudflare Pages chat interface
-4. ✅ **Memory/State**: Durable Objects with persistent session storage
-
-See [REQUIREMENTS.md](./REQUIREMENTS.md) for detailed verification.
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Cloudflare account (for deployment)
-- Wrangler CLI: `npm install -g wrangler`
-
-### Local Development
-
-#### 1. Start the Worker
+### 1) Start the Worker API
 
 ```bash
 cd worker
@@ -98,13 +29,9 @@ npm install
 npm run dev
 ```
 
-The Worker will start on `http://localhost:8787` in local mode.
+This runs the Worker locally at `http://localhost:8787`.
 
-**Note**: For full AI functionality, you may need to run in remote mode (`npm run dev:remote`) after authenticating with Cloudflare and registering a workers.dev subdomain.
-
-**📖 See [ENABLE_AI.md](./ENABLE_AI.md) for detailed steps to enable Workers AI.**
-
-#### 2. Start the Pages UI
+### 2) Start the Web UI
 
 ```bash
 cd apps/web
@@ -112,13 +39,43 @@ npm install
 npm run dev
 ```
 
-The UI will start on `http://localhost:5173` with proxy to the Worker at `http://localhost:8787`.
+This runs the UI at `http://localhost:5173` and proxies `/api/*` to the Worker.
 
-#### 3. Open the Application
+### Using the deployed Worker from local UI (optional)
 
-Navigate to `http://localhost:5173` in your browser and start chatting!
+Set `VITE_API_URL`:
 
-## 📡 API Documentation
+```bash
+cd apps/web
+VITE_API_URL="https://worker.o-abdelgadir32.workers.dev/api" npm run dev
+```
+
+On Windows PowerShell:
+
+```powershell
+cd apps/web
+$env:VITE_API_URL="https://worker.o-abdelgadir32.workers.dev/api"
+npm run dev
+```
+
+## 🧠 How it works (high level)
+
+- **Worker (`worker/src/index.ts`)**: coordinates the interview loop and exposes:
+  - `POST /api/chat` (chat + commands)
+  - `POST /api/reset`
+  - `GET /api/summary?sessionId=...`
+- **Durable Object (`worker/src/MemoryDO.ts`)**: stores per-session state (mode, role, focus, transcript, signals, stats)
+- **Workers AI**: generates the next question and grades answers (strict JSON), then the Worker formats that into feedback + updates state
+
+## 🧩 Commands (type in chat)
+
+- **`/start behavioral|technical|mixed`**: start/continue an interview
+- **`/summary`**: performance snapshot
+- **`/reset`**: clear session state
+- **`/focus <topic>`**: bias feedback/questions (examples: `metrics`, `clarity`, `system-design`)
+- **`/role <job title>`**: set target role (example: `/role Product Manager`)
+
+## 📡 API reference (minimal)
 
 ### POST /api/chat
 
@@ -336,22 +293,7 @@ cf_ai_interview_coach/
 - [Cloudflare Pages](https://developers.cloudflare.com/pages/)
 - [Cloudflare Agents](https://developers.cloudflare.com/agents/)
 
-## 🤝 Contributing
-
-This is a demonstration project. For production use, consider:
-
-- Adding authentication
-- Implementing rate limiting
-- Adding more granular error handling
-- Expanding the rubric for different interview types
-- Adding voice input support
-- Implementing session export/import
-
 ## 📄 License
 
-Original work only. See project requirements.
-
----
-
-**Built with ❤️ on Cloudflare**
+MIT (see `LICENSE`)
 
