@@ -65,7 +65,7 @@ $env:VITE_API_URL="https://worker.o-abdelgadir32.workers.dev/api"
 npm run dev
 ```
 
-## 🧠 How it works (high level)
+## How it works (high level)
 
 - **Worker (`worker/src/index.ts`)**: coordinates the interview loop and exposes:
   - `POST /api/chat` (chat + commands)
@@ -186,7 +186,7 @@ Each session is identified by a `sessionId` stored in the browser's localStorage
 
 **Adaptive Questioning**: Based on accumulated signals (e.g., frequent "missing_metrics"), the AI adapts future questions to focus on improving those specific areas.
 
-## ✅ How to verify Workers AI is really running (not fallback)
+## How to verify Workers AI is really running (not fallback)
 
 The Worker has fallback question/grade logic if Workers AI isn’t available. To confirm the real model is responding:
 
