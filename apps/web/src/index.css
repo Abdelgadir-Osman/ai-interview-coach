@@ -10,15 +10,18 @@
 		sans-serif;
 	line-height: 1.5;
 	font-weight: 400;
-	color-scheme: light dark;
-	color: rgba(255, 255, 255, 0.87);
-	background-color: #242424;
+	color-scheme: light;
+	color: #0b1220;
+	background-color: #f5f7fb;
 }
 
 body {
 	margin: 0;
-	display: flex;
+	display: block;
 	min-height: 100vh;
+	background: radial-gradient(1200px 700px at 20% 0%, rgba(255, 92, 0, 0.12), transparent 55%),
+		radial-gradient(1000px 650px at 100% 20%, rgba(102, 126, 234, 0.18), transparent 55%),
+		#f5f7fb;
 }
 
 #root {

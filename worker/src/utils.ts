@@ -50,22 +50,17 @@ export function trimTranscript(messages: TranscriptMessage[], max: number): Tran
 	return messages.slice(messages.length - max);
 }
 
-export function safeJsonParse<T>(raw: string | unknown): { ok: true; value: T } | { ok: false; error: string } {
-	// Ensure raw is a string
-	if (typeof raw !== "string") {
-		if (raw === null || raw === undefined) {
-			return { ok: false, error: "Input is null or undefined" };
-		}
-		// If it's already an object, return it
-		if (typeof raw === "object") {
-			return { ok: true, value: raw as T };
-		}
-		raw = String(raw);
-	}
+export function safeJsonParse<T>(raw: unknown): { ok: true; value: T } | { ok: false; error: string } {
+	if (raw === null || raw === undefined) return { ok: false, error: "Input is null or undefined" };
+
+	// If it's already an object, treat it as the parsed value.
+	if (typeof raw === "object") return { ok: true, value: raw as T };
+
+	const s = typeof raw === "string" ? raw : String(raw);
 	try {
-		return { ok: true, value: JSON.parse(raw) as T };
+		return { ok: true, value: JSON.parse(s) as T };
 	} catch (e) {
-		const extracted = extractJsonObject(raw);
+		const extracted = extractJsonObject(s);
 		if (extracted) {
 			try {
 				return { ok: true, value: JSON.parse(extracted) as T };

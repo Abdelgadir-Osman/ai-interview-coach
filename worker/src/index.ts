@@ -204,6 +204,11 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 	const stub = getStub(env, sessionId);
 
 	const cmd = rawMessage ? parseCommand(rawMessage) : null;
+	const hasProfilePatch =
+		body.mode !== undefined ||
+		body.targetRole !== undefined ||
+		body.level !== undefined ||
+		(body.focus !== undefined && Array.isArray(body.focus));
 
 	// Command: /reset
 	if (cmd?.cmd === "reset") {
@@ -291,6 +296,23 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 		await stub.patchProfile(sessionId, { mode });
 		await stub.clearLastQuestion(sessionId);
 		return await sendNextQuestion(env, sessionId);
+	}
+
+	// If no message but profile fields were provided, treat as profile update ack (do not start interview).
+	if (!rawMessage && hasProfilePatch) {
+		const s = await stub.getSession(sessionId);
+		const currentFocus = currentFocusFromSignals(s.state.signals);
+		return jsonResponse({
+			sessionId,
+			reply: "Profile updated.",
+			stats: {
+				avgScore: s.state.stats.avgScore,
+				lastScores: s.state.stats.lastScores,
+				currentFocus,
+				questionsAnswered: s.state.stats.questionsAnswered,
+			},
+			lastGrade: s.lastGrade,
+		} satisfies ChatResponse);
 	}
 
 	// If no message, treat as "start" in current mode.
