@@ -1,82 +1,102 @@
-# PROMPTS.md (runtime prompt suite)
+# Build Prompts
 
-This document contains the **runtime prompts used by the AI Interview Coach** when calling Workers AI. Prompts are designed to be:
+This document contains the prompts used to build the AI Interview Coach application. These prompts were designed to guide the development process from initial architecture through implementation and refinement.
 
-- strict JSON (machine-parseable)
-- concise and interview-realistic
-- robust against formatting drift
-- explicit about rubrics and expectations
+## Phase 1: Architecture & Planning
 
-## Table of Contents
-
-1. [Question Generation Prompts](#question-generation-prompts)
-2. [Grading Prompts](#grading-prompts)
-3. [Rubrics](#rubrics)
-
-## Question Generation Prompts
-
-### System Prompt
-
-**Location**: `worker/src/prompts.ts` - `questionSystemPrompt()`
+### Initial Project Setup
 
 ```
-You are an AI interview coach.
-Your job: ask ONE interview question at a time and tailor it to the candidate's profile and weaknesses.
-Keep questions realistic for a real interview and appropriate to the level.
-Output ONLY valid JSON matching this schema:
-{
-  "question": string,
-  "rubric_focus": string
-}
+I want to build an AI-powered interview coach application that runs entirely on Cloudflare's platform. The application should:
+
+1. Use Cloudflare Workers for the API backend
+2. Use Durable Objects for persistent session state and memory
+3. Use Workers AI (Llama 3.3) for generating interview questions and grading answers
+4. Use Cloudflare Pages for the frontend chat interface
+5. Support multiple interview modes (behavioral, technical, mixed)
+6. Provide real-time feedback with scoring, strengths, improvements, and example answers
+7. Track conversation history and adapt questions based on candidate weaknesses
+8. Include a clean, modern UI with stats visualization
+
+Please create a detailed plan that covers:
+- System architecture and data flow
+- API endpoints and request/response formats
+- Durable Object state structure
+- Prompt engineering for question generation and grading
+- Frontend component structure
+- Deployment strategy
 ```
 
-### User Prompt Template
-
-**Location**: `worker/src/prompts.ts` - `buildQuestionMessages()`
+### Architecture Refinement
 
 ```
-Mode: {mode}
-Target role: {targetRole}
-Level: {level}
-Focus areas (if any): {focus.join(", ") || "none"}
-Weakness signals (higher means more frequent): {JSON.stringify(signals)}
-Recently asked (avoid repeating):
-- {lastTopics.join("\n- ")}
-Ask the next question now.
+Based on the plan, I need to refine the coordination flow. The system should:
+
+1. Start with a welcome message and mode selection
+2. Generate questions using Workers AI with context about the candidate's profile and weaknesses
+3. Grade answers using a structured rubric (STAR format for behavioral, technical depth for technical)
+4. Update weakness signals based on grading results
+5. Adapt subsequent questions to target identified weaknesses
+6. Provide a summary at the end with overall performance
+
+Please detail:
+- The exact state structure for the Durable Object
+- The prompt templates for question generation and grading
+- The JSON schemas for AI responses
+- Error handling and fallback strategies
 ```
 
-**Example Input**:
-```
-Mode: behavioral
-Target role: Software Engineering Intern
-Level: intern
-Focus areas (if any): metrics
-Weakness signals (higher means more frequent): {"missing_metrics":3,"weak_result":2,"unclear_task":0,"rambling":1}
-Recently asked (avoid repeating):
-- Tell me about a time you faced a tight deadline...
-- Describe a challenging project...
-Ask the next question now.
-```
+## Phase 2: Backend Implementation
 
-**Expected Output**:
-```json
-{
-  "question": "Tell me about a project where you had to collaborate with a team. What was your specific role, what challenges did you face, and how did you measure success?",
-  "rubric_focus": "Use STAR format, include specific metrics or quantifiable outcomes, and clarify your personal contribution."
-}
-```
-
-## Grading Prompts
-
-### System Prompt
-
-**Location**: `worker/src/prompts.ts` - `gradeSystemPrompt()`
+### Worker & Durable Object Setup
 
 ```
-You are an interview grader and coach.
-Return STRICT JSON only. No markdown, no commentary.
-Use 0-10 scores. Be fair but demanding.
-Schema:
+I need to implement the Cloudflare Worker with the following requirements:
+
+1. Create a Worker that handles API routes:
+   - POST /api/chat - Main chat endpoint for questions and answers
+   - POST /api/reset - Reset session state
+   - GET /api/summary - Get session summary
+   - POST /api/role - Update target role
+   - GET /api/health - Check Workers AI status
+
+2. Create a Durable Object class (MemoryDO) that stores:
+   - Session state (mode, level, targetRole, focus areas)
+   - Conversation transcript (trimmed to last N messages)
+   - Weakness signals (missing_metrics, weak_result, unclear_task, rambling)
+   - Statistics (questionsAsked, averageScore, lastGrade)
+   - Last question asked (to avoid repetition)
+
+3. Implement coordination logic:
+   - Detect when a new question is needed (empty message or explicit command)
+   - Call Workers AI to generate questions with context
+   - Call Workers AI to grade answers with structured rubrics
+   - Update state after each interaction
+
+Please provide TypeScript implementation with proper error handling, CORS support, and JSON parsing with retry logic.
+```
+
+### Prompt Engineering
+
+```
+I need to design prompts for Workers AI that:
+
+1. Generate interview questions that:
+   - Are tailored to the candidate's target role and level
+   - Avoid repeating recently asked questions
+   - Target identified weakness areas
+   - Return strict JSON: { "question": string, "rubric_focus": string }
+
+2. Grade answers that:
+   - Use STAR format for behavioral questions (Situation, Task, Action, Result)
+   - Evaluate technical depth for technical questions
+   - Score 0-10 on multiple dimensions (overall, STAR components, clarity, impact)
+   - Provide actionable feedback (strengths, improvements, missing elements)
+   - Include an improved example answer
+   - Update weakness signals based on the answer quality
+   - Suggest next question strategy
+
+3. Return strict JSON matching this schema:
 {
   "overallScore": number,
   "star": {"situation": number, "task": number, "action": number, "result": number},
@@ -86,102 +106,214 @@ Schema:
   "improvements": string[],
   "missing": string[],
   "improvedAnswer": string,
-  "signalUpdates": {"missing_metrics"?: number, "weak_result"?: number, "unclear_task"?: number, "rambling"?: number},
+  "signalUpdates": object,
   "nextQuestionStrategy": string
 }
+
+Please create prompt templates that are concise, explicit about JSON requirements, and include examples.
 ```
 
-### User Prompt Template
-
-**Location**: `worker/src/prompts.ts` - `buildGradeMessages()`
+### Error Handling & Edge Cases
 
 ```
-Mode: {mode}
-Target role: {targetRole}
-Level: {level}
-Focus: {focus.join(", ") || "none"}
+I need to handle the following edge cases:
 
-Interview question:
-{questionText}
+1. Workers AI returns invalid JSON or markdown-wrapped JSON
+2. Workers AI is unavailable or rate-limited
+3. Conversation transcript exceeds token limits
+4. Empty or very short user messages
+5. User sends commands like "/reset" or "/summary" mid-conversation
+6. Session state corruption or missing fields
 
-Rubric:
-{rubric}
-
-Candidate answer:
-{answerText}
+Please implement:
+- Safe JSON parsing with retry logic (ask AI to return JSON-only on failure)
+- Graceful fallbacks when AI is unavailable
+- Transcript trimming to keep last N messages
+- Input validation and sanitization
+- Default state initialization
 ```
 
-**Example Input**:
-```
-Mode: behavioral
-Target role: Software Engineering Intern
-Level: intern
-Focus: metrics
+## Phase 3: Frontend Implementation
 
-Interview question:
-Tell me about a time you faced a tight deadline. What was the situation, what was your task, what actions did you take, and what was the result?
-
-Rubric:
-Grade the answer 0-10 using STAR + communication:
-- Situation: context is clear
-- Task: goal/responsibility is explicit
-- Action: concrete steps, ownership, tradeoffs
-- Result: measurable outcome + reflection
-- Clarity: structured, concise
-- Impact: scale, metrics, stakes
-
-Candidate answer:
-I had to finish a project in two days. I worked hard and got it done on time.
-```
-
-**Expected Output**:
-```json
-{
-  "overallScore": 4,
-  "star": {"situation": 5, "task": 4, "action": 3, "result": 3},
-  "clarity": 6,
-  "impact": 2,
-  "strengths": ["Concise response", "Addressed the deadline"],
-  "improvements": ["Add specific actions taken", "Include measurable results", "Provide more context"],
-  "missing": ["Key metrics", "Specific actions", "Quantifiable results"],
-  "improvedAnswer": "I faced a tight deadline when our team had 2 days to deliver a feature that normally takes a week. My task was to implement the backend API endpoints. I broke down the work into smaller tasks, focused on core functionality first, and worked 10-hour days to complete it. The result was that we delivered on time and the feature handled 1,000 requests per minute without errors. I learned the importance of prioritization and time management.",
-  "signalUpdates": {"missing_metrics": 1, "weak_result": 1, "unclear_task": 1},
-  "nextQuestionStrategy": "Ask follow-ups that require specific actions and measurable results."
-}
-```
-
-## Rubric Prompts
-## Rubrics
-
-### Behavioral/Mixed Mode Rubric
-
-**Location**: `worker/src/prompts.ts` - `rubricForMode()`
+### UI Design & Components
 
 ```
-Grade the answer 0-10 using STAR + communication:
-- Situation: context is clear
-- Task: goal/responsibility is explicit
-- Action: concrete steps, ownership, tradeoffs
-- Result: measurable outcome + reflection
-- Clarity: structured, concise
-- Impact: scale, metrics, stakes
+I need to build a React frontend (Vite + TypeScript) for Cloudflare Pages with:
+
+1. A clean, modern chat interface with:
+   - Message history with avatars and timestamps
+   - Input field with voice-to-text support
+   - Mode selector (behavioral, technical, mixed)
+   - Role input field for customization
+   - Quick action chips for common commands
+
+2. A stats panel showing:
+   - Questions asked count
+   - Average score
+   - Last grade breakdown (scorecard visualization)
+   - Performance trends
+
+3. A guided onboarding panel that:
+   - Explains what the coach does
+   - Shows available modes and their purposes
+   - Lists available commands
+   - Provides usage tips
+
+4. A top bar with:
+   - Brand/logo
+   - Connection status indicator
+   - Help button
+
+Please implement with:
+- Responsive design
+- Clean, professional styling (Cloudflare-inspired)
+- Proper state management
+- Error handling for API calls
+- Loading states
 ```
 
-### Technical Mode Rubric
+### Voice Input Integration
 
 ```
-Grade the answer 0-10 based on:
-- correctness/feasibility of approach
-- clarity of explanation
-- tradeoffs and complexity discussion
-- structured communication (steps, assumptions)
-- impact (realism, constraints, edge cases)
+I need to add voice-to-text functionality using the Web Speech API:
+
+1. Add a microphone button next to the text input
+2. Use browser's SpeechRecognition API (with webkit fallback)
+3. Show visual feedback when recording (pulsing animation)
+4. Handle errors gracefully (browser not supported, permissions denied)
+5. Insert transcribed text into the input field
+
+Please implement with proper error handling and cross-browser compatibility.
 ```
 
-## Runtime behavior notes (implementation)
+## Phase 4: Testing & Refinement
 
-The Worker enforces:
-- strict JSON parsing (with one retry asking for JSON-only)
-- transcript trimming to control token usage
-- fallbacks when the model is unavailable
+### Testing Strategy
 
+```
+I need a comprehensive testing approach:
+
+1. Create a test checklist covering:
+   - API endpoints (chat, reset, summary, health)
+   - Question generation and grading accuracy
+   - State persistence in Durable Objects
+   - UI interactions and edge cases
+   - Error handling and fallbacks
+
+2. Create a quick test script (PowerShell) that:
+   - Tests the /api/chat endpoint with sample messages
+   - Verifies JSON responses
+   - Tests session reset
+   - Checks health endpoint
+
+Please provide both a manual testing checklist and an automated test script.
+```
+
+### UI/UX Improvements
+
+```
+Based on user feedback, I need to improve:
+
+1. Mode selector visibility (fix white text on white background)
+2. Help documentation (add help panel with commands and mode descriptions)
+3. Visual feedback (add scorecard for last grade, improve stats panel)
+4. Onboarding (replace welcome message with guided panel)
+5. Message presentation (add avatars and timestamps)
+6. Quick actions (add command chips for common actions)
+7. Global theming (clean up dark mode defaults, improve contrast)
+
+Please implement all these improvements while maintaining a professional, modern aesthetic.
+```
+
+## Phase 5: Deployment & Documentation
+
+### Deployment Setup
+
+```
+I need to set up deployment:
+
+1. Configure Wrangler for:
+   - Worker deployment with Durable Object bindings
+   - Pages deployment with build output
+   - Environment variables for API URLs
+
+2. Create GitHub Actions workflows for:
+   - Automated testing on pull requests
+   - Automated deployment to Cloudflare on main branch
+
+3. Set up:
+   - Workers AI binding in wrangler.jsonc
+   - Pages project in Cloudflare dashboard
+   - Environment variables for production
+
+Please provide step-by-step deployment instructions and CI/CD configuration.
+```
+
+### Documentation
+
+```
+I need comprehensive documentation:
+
+1. README.md with:
+   - Project overview and architecture
+   - Quick start guide
+   - API reference
+   - Deployment instructions
+   - Troubleshooting guide
+
+2. PROMPTS.md (this file) documenting:
+   - The prompts used to build the project
+   - Architecture decisions
+   - Implementation approach
+
+3. PROMPTS_RUNTIME.md documenting:
+   - The actual runtime prompts used by the application
+   - Prompt templates and examples
+   - Rubric definitions
+
+Please create clear, professional documentation that's accessible to both technical and non-technical readers.
+```
+
+## Phase 6: Repository Setup
+
+### GitHub Configuration
+
+```
+I need to set up a professional GitHub repository:
+
+1. Create .gitignore for:
+   - node_modules
+   - dist folders
+   - .wrangler
+   - .dev.vars
+   - Build artifacts
+
+2. Add LICENSE (MIT)
+
+3. Create GitHub Actions workflows:
+   - deploy.yml for automated deployment
+   - test.yml for type checking and testing
+
+4. Add issue templates:
+   - bug_report.md
+   - feature_request.md
+
+5. Update README.md with:
+   - GitHub badge
+   - Clear setup instructions
+   - Less technical language for general audience
+
+Please set up all repository infrastructure and ensure the codebase is clean and professional.
+```
+
+## Key Design Principles
+
+Throughout the build process, these principles guided development:
+
+1. **Cloudflare-Native**: Leverage Workers, Durable Objects, Workers AI, and Pages for a fully serverless architecture
+2. **Type Safety**: Use TypeScript throughout for reliability and maintainability
+3. **Structured AI Responses**: Enforce strict JSON schemas for predictable parsing
+4. **Adaptive Coaching**: Use weakness signals to personalize the interview experience
+5. **Professional UX**: Clean, modern interface that feels production-ready
+6. **Error Resilience**: Graceful fallbacks and robust error handling
+7. **Documentation First**: Clear documentation for users and developers
