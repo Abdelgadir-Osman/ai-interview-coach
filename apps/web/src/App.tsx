@@ -310,7 +310,7 @@ function App() {
 					</div>
 				</div>
 				<div className="topbar-right">
-					<div className={`status-pill ${apiStatus}`} title={lastError ?? `API: ${API_BASE}`}>
+					<div className={`status-pill ${apiStatus}`} title={lastError ?? "Connection status"}>
 						<span className="status-dot" aria-hidden="true" />
 						<span className="status-text">
 							{apiStatus === "online" ? "Connected" : apiStatus === "checking" ? "Checking…" : "Offline"}
@@ -759,7 +759,6 @@ function App() {
 
 					<div className="session-info">
 						<small>Session: {sessionId ? `${sessionId.substring(0, 8)}…` : "—"}</small>
-						<small>API: {API_BASE}</small>
 					</div>
 				</div>
 			</div>
